@@ -68,7 +68,17 @@ def scrape_olx_ads(search_url, title_keywords_list):
     # Configure o modo headless aqui: True para rodar em segundo plano, False para ver o navegador
     run_headless = True # Defina como False para depuração visual
 
-    args = ['--lang=pt-BR', '--window-size=1920,1080', '--incognito']
+    args = [
+        '--lang=pt-BR', 
+        '--window-size=1920,1080', 
+        '--incognito',
+        '--disable-gpu',  # Often necessary for headless, prevents GPU crashes
+        '--disable-software-rasterizer', # Can also help with stability
+        '--no-sandbox', # Use with caution, can be necessary in some environments
+        '--disable-dev-shm-usage', # Overcomes limited resource problems
+        '--ignore-certificate-errors', # For SSL handshake issues (use as a workaround)
+        '--allow-running-insecure-content' # For SSL handshake issues (use as a workaround)
+    ]
     if run_headless:
         args.append('--headless')
 
@@ -95,10 +105,16 @@ def scrape_olx_ads(search_url, title_keywords_list):
     AD_PRICE_SELECTOR = 'h3.olx-adcard__price' # Relativo ao container do anúncio
 
     try:
+        # Certifique-se de que o chromedriver.exe está em C:\chromedriver\chromedriver.exe
+        # ou ajuste o caminho abaixo conforme necessário.
+        chromedriver_path = r"C:\chromedriver\chromedriver.exe"
+        print(f"  Tentando iniciar ChromeDriver em: {chromedriver_path}")
+        driver_service = ChromeService(executable_path=chromedriver_path)
         driver = webdriver.Chrome(
-            service=ChromeService(ChromeDriverManager().install()),
+            service=driver_service,
             options=chrome_options
         )
+        print(f"  WebDriver iniciado com sucesso.")
         print(f"  Acessando URL: {search_url}")
         driver.get(search_url)
         # time.sleep(5)  # Opcional: A WebDriverWait abaixo já lida com a espera pelos elementos (comentado)
@@ -112,7 +128,7 @@ def scrape_olx_ads(search_url, title_keywords_list):
             # Se a espera for bem-sucedida, agora podemos encontrar todos os elementos
             ad_elements = driver.find_elements(By.CSS_SELECTOR, AD_LINK_SELECTOR)
         except TimeoutException:
-            print(f"    Timeout ({wait_timeout}s) esperando pelos elementos de anúncio com o seletor '{ad_link_selector}' em {search_url}. Nenhum anúncio encontrado.")
+            print(f"    Timeout ({wait_timeout}s) esperando pelos elementos de anúncio com o seletor '{AD_LINK_SELECTOR}' em {search_url}. Nenhum anúncio encontrado.")
             return [] # Retorna lista vazia se não encontrar elementos dentro do tempo limite
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -164,50 +180,55 @@ def scrape_olx_ads(search_url, title_keywords_list):
 
 def run_scraper_instance(search_urls_list, seen_file_name, title_filter_keywords, search_type_name, max_notifications=None):
     """Main function to run a scraper instance for a specific search type."""
-    print(f"\n--- Iniciando scraper para: {search_type_name} ---")
-    print(f"  Usando SEEN_FILE: {seen_file_name}")
-    print(f"  Palavras-chave para filtro de título: {title_filter_keywords}")
+    try:
+        print(f"\n--- Iniciando scraper para: {search_type_name} ---")
+        print(f"  Usando SEEN_FILE: {seen_file_name}")
+        print(f"  Palavras-chave para filtro de título: {title_filter_keywords}")
 
-    seen_links = load_seen_data(seen_file_name)
-    seen_links_set = set(seen_links)
-    new_ads_found = []
+        seen_links = load_seen_data(seen_file_name)
+        seen_links_set = set(seen_links)
+        new_ads_found = []
 
-    for s_url in search_urls_list:
-        scraped_items = scrape_olx_ads(s_url, title_filter_keywords)
-        for titulo, preco, link in scraped_items:
-            if link not in seen_links_set:
-                seen_links.append(link)
-                seen_links_set.add(link)
-                new_ads_found.append((titulo, preco, link))
+        for s_url in search_urls_list:
+            scraped_items = scrape_olx_ads(s_url, title_filter_keywords)
+            for titulo, preco, link in scraped_items:
+                if link not in seen_links_set:
+                    seen_links.append(link)
+                    seen_links_set.add(link)
+                    new_ads_found.append((titulo, preco, link))
 
-    if new_ads_found:
+        if new_ads_found:
 
-        print(f"  Encontrados {len(new_ads_found)} novos anúncios para {search_type_name}.")
+            print(f"  Encontrados {len(new_ads_found)} novos anúncios para {search_type_name}.")
 
-        sorted_new_ads = sorted(new_ads_found, key=lambda item: float(str(item[1]).replace('R$', '').replace('.', '').replace(',', '.').strip() if str(item[1]).replace('R$', '').replace('.', '').replace(',', '.').strip().replace('.','',1).isdigit() else '0'))
+            sorted_new_ads = sorted(new_ads_found, key=lambda item: float(str(item[1]).replace('R$', '').replace('.', '').replace(',', '.').strip() if str(item[1]).replace('R$', '').replace('.', '').replace(',', '.').strip().replace('.','',1).isdigit() else '0'))
 
-        # Aplicar o limite máximo de notificações, se especificado
-        if max_notifications is not None and max_notifications > 0:
-            sorted_new_ads = sorted_new_ads[:max_notifications]
+            # Aplicar o limite máximo de notificações, se especificado
+            if max_notifications is not None and max_notifications > 0:
+                sorted_new_ads = sorted_new_ads[:max_notifications]
 
-            
-        print(f"  Enviando {len(sorted_new_ads)} novas notificações para {search_type_name} (ordenado por preço)...")
-        for titulo, preco, link in sorted_new_ads:
-            
-            now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-            msg = (
-                f"🚨 *Nova Oferta ({search_type_name}) Detectada!*\n"
-                f"📅 *Data:* {now.split()[0]}   🕑 *Hora:* {now.split()[1]}\n\n"
-                f"*{titulo}*\n"
-                f"{preco}\n"
-                f"{link}"
-            )
-            send_telegram_message(msg)
-            time.sleep(0.5)  
-        save_seen_data(seen_links, seen_file_name)
-        print(f"  Notificações enviadas e {seen_file_name} atualizado.")
-    else:
-        print(f"  Nenhum anúncio novo encontrado para {search_type_name}.")
+                
+            print(f"  Enviando {len(sorted_new_ads)} novas notificações para {search_type_name} (ordenado por preço)...")
+            for titulo, preco, link in sorted_new_ads:
+                
+                now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                msg = (
+                    f"🚨 *Nova Oferta ({search_type_name}) Detectada!*\n"
+                    f"📅 *Data:* {now.split()[0]}   🕑 *Hora:* {now.split()[1]}\n\n"
+                    f"*{titulo}*\n"
+                    f"{preco}\n"
+                    f"{link}"
+                )
+                send_telegram_message(msg)
+                time.sleep(0.5)  
+            save_seen_data(seen_links, seen_file_name)
+            print(f"  Notificações enviadas e {seen_file_name} atualizado.")
+        else:
+            print(f"  Nenhum anúncio novo encontrado para {search_type_name}.")
 
-    print(f"  Total de anúncios novos para {search_type_name}: {len(new_ads_found)}")
-    print(f"--- Scraper para {search_type_name} concluído ---")
+        print(f"  Total de anúncios novos para {search_type_name}: {len(new_ads_found)}")
+    except Exception as e:
+        print(f"  ERRO INESPERADO durante o scraping para '{search_type_name}': {e}")
+        # Você pode adicionar mais logging aqui se necessário, como traceback.format_exc()
+    finally:
+        print(f"--- Scraper para {search_type_name} concluído (ou falhou) ---")
