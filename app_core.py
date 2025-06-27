@@ -67,32 +67,21 @@ def scrape_olx_ads(search_url, title_keywords_list):
     # Configure o modo headless aqui: True para rodar em segundo plano, False para ver o navegador
     run_headless = True # Defina como False para depuração visual
 
+    # Simplificamos os argumentos, pois o undetected-chromedriver já lida com muita coisa.
     args = [
         '--lang=pt-BR', 
         '--window-size=1920,1080', 
         '--incognito',
-        '--disable-gpu',  # Often necessary for headless, prevents GPU crashes
-        '--disable-software-rasterizer', # Can also help with stability
-        '--no-sandbox', # Use with caution, can be necessary in some environments
+        '--no-sandbox', # Essencial para rodar em muitos ambientes de VPS/Docker
         '--disable-dev-shm-usage', # Overcomes limited resource problems
-        '--ignore-certificate-errors', # For SSL handshake issues (use as a workaround)
-        '--allow-running-insecure-content' # For SSL handshake issues (use as a workaround)
+        '--disable-gpu',
     ]
-    if run_headless:
-        args.append('--headless')
+    # O modo headless será controlado diretamente pelo parâmetro do uc.Chrome()
 
     # Adicionar um User-Agent comum
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
-    # Tentar mascarar automação
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
     for a in args:
         chrome_options.add_argument(a)
-    chrome_options.add_experimental_option('prefs', {
-        'download.prompt_for_download': False,
-        'profile.default_content_setting_values.notifications': 2,
-        'profile.default_content_setting_values.automatic_downloads': 1,
-    })
 
     driver = None
     itens = []
@@ -107,7 +96,9 @@ def scrape_olx_ads(search_url, title_keywords_list):
         # undetected_chromedriver gerencia o download e o caminho do driver automaticamente.
         print("  Iniciando undetected_chromedriver...")
         driver = uc.Chrome(
-            options=chrome_options
+            options=chrome_options,
+            headless=run_headless,      # Forma correta de ativar o modo headless
+            use_subprocess=True,      # Aumenta a estabilidade em Linux/VPS
         )
 
         # Define um tempo máximo de 45 segundos para o carregamento de uma página.
