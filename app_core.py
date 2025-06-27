@@ -13,6 +13,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
+from selenium_stealth import stealth # Importa a biblioteca stealth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -122,6 +123,20 @@ def scrape_olx_ads(search_url, title_keywords_list):
             service=driver_service,
             options=chrome_options
         )
+        
+        # Aplica as configurações do selenium-stealth para tornar o driver menos detectável
+        stealth(driver,
+                languages=["pt-BR", "pt"],
+                vendor="Google Inc.",
+                platform="Win32",
+                webgl_vendor="Intel Inc.",
+                renderer="Intel Iris OpenGL Engine",
+                fix_hairline=True,
+                )
+
+        # Define um tempo máximo de 45 segundos para o carregamento de uma página.
+        # Se a página não carregar neste tempo, uma TimeoutException será lançada.
+        driver.set_page_load_timeout(45)
         print(f"  WebDriver iniciado com sucesso.")
         print(f"  Acessando URL: {search_url}")
         driver.get(search_url)
