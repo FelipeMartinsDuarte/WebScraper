@@ -107,7 +107,15 @@ def scrape_olx_ads(search_url, title_keywords_list):
     try:
         # Certifique-se de que o chromedriver.exe está em C:\chromedriver\chromedriver.exe
         # ou ajuste o caminho abaixo conforme necessário.
-        chromedriver_path = r"C:\chromedriver\chromedriver.exe"
+        # Pega o caminho do ChromeDriver da variável de ambiente.
+        # Se não estiver definida, usa um caminho padrão para desenvolvimento local no Windows.
+        chromedriver_path = os.getenv('CHROMEDRIVER_PATH', r"C:\chromedriver\chromedriver.exe")
+
+        if not os.path.exists(chromedriver_path):
+            print(f"ERRO: ChromeDriver não encontrado em '{chromedriver_path}'.")
+            print("Verifique o caminho no seu script ou configure a variável de ambiente CHROMEDRIVER_PATH.")
+            return []
+
         print(f"  Tentando iniciar ChromeDriver em: {chromedriver_path}")
         driver_service = ChromeService(executable_path=chromedriver_path)
         driver = webdriver.Chrome(
