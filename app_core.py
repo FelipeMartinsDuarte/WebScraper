@@ -5,15 +5,13 @@ import time
 import requests
 from datetime import datetime
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException # Importação adicionada
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
-from selenium_stealth import stealth # Importa a biblioteca stealth
+import undetected_chromedriver as uc # Importa a biblioteca undetected-chromedriver
 
 # Load environment variables from .env file
 load_dotenv()
@@ -106,33 +104,11 @@ def scrape_olx_ads(search_url, title_keywords_list):
     AD_PRICE_SELECTOR = 'h3.olx-adcard__price' # Relativo ao container do anúncio
 
     try:
-        # Certifique-se de que o chromedriver.exe está em C:\chromedriver\chromedriver.exe
-        # ou ajuste o caminho abaixo conforme necessário.
-        # Pega o caminho do ChromeDriver da variável de ambiente.
-        # Se não estiver definida, usa um caminho padrão para desenvolvimento local no Windows.
-        chromedriver_path = os.getenv('CHROMEDRIVER_PATH', r"C:\chromedriver\chromedriver.exe")
-
-        if not os.path.exists(chromedriver_path):
-            print(f"ERRO: ChromeDriver não encontrado em '{chromedriver_path}'.")
-            print("Verifique o caminho no seu script ou configure a variável de ambiente CHROMEDRIVER_PATH.")
-            return []
-
-        print(f"  Tentando iniciar ChromeDriver em: {chromedriver_path}")
-        driver_service = ChromeService(executable_path=chromedriver_path)
-        driver = webdriver.Chrome(
-            service=driver_service,
+        # undetected_chromedriver gerencia o download e o caminho do driver automaticamente.
+        print("  Iniciando undetected_chromedriver...")
+        driver = uc.Chrome(
             options=chrome_options
         )
-        
-        # Aplica as configurações do selenium-stealth para tornar o driver menos detectável
-        stealth(driver,
-                languages=["pt-BR", "pt"],
-                vendor="Google Inc.",
-                platform="Win32",
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
-                )
 
         # Define um tempo máximo de 45 segundos para o carregamento de uma página.
         # Se a página não carregar neste tempo, uma TimeoutException será lançada.
