@@ -118,8 +118,16 @@ def scrape_olx_ads(search_url, title_keywords_list):
             # Se a espera for bem-sucedida, agora podemos encontrar todos os elementos
             ad_elements = driver.find_elements(By.CSS_SELECTOR, AD_LINK_SELECTOR)
         except TimeoutException:
-            print(f"    Timeout ({wait_timeout}s) esperando pelos elementos de anúncio com o seletor '{AD_LINK_SELECTOR}' em {search_url}. Nenhum anúncio encontrado.")
-            return [] # Retorna lista vazia se não encontrar elementos dentro do tempo limite
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = f'debug_screenshot_{timestamp}.png'
+            html_path = f'debug_page_source_{timestamp}.html'
+            print(f"    Timeout ({wait_timeout}s) esperando pelos elementos de anúncio em {search_url}.")
+            print(f"    Salvando screenshot de depuração em: {screenshot_path}")
+            driver.save_screenshot(screenshot_path)
+            print(f"    Salvando código-fonte da página em: {html_path}")
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            return []
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)  # Allow time for lazy-loaded content
